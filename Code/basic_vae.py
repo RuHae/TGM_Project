@@ -10,14 +10,16 @@ from tqdm import tqdm
 
 
 class Encoder(nn.Module):
-    def __init__(self, latent_dims, mode="beta_vae"):
+    def __init__(self, latent_dims, channels, mode="beta_vae"):
         super(Encoder, self).__init__()
+        self.channels = channels
         self.mode = mode
         # 28*28*3
-        self.conv1 = nn.Conv2d(3, 4, 3, stride=1)
+        self.conv1 = nn.Conv2d(self.channels, 4, 3, stride=1)
         self.conv2 = nn.Conv2d(4, 5, 3, stride=2)   
 
-        self.bn1 = nn.BatchNorm2d(5)
+        self.bn1 = nn.BatchNorm2d(4)
+        self.bn2 = nn.BatchNorm2d(5)
         
         self.linear1 = nn.Linear(720, 256)
         self.linear2 = nn.Linear(256, latent_dims)
@@ -27,8 +29,8 @@ class Encoder(nn.Module):
         # self.linear3 = nn.Linear(512, latent_dims)
 
         self.N = torch.distributions.Normal(0, 1)
-        self.N.loc = self.N.loc.cuda() # hack to get sampling on the GPU
-        self.N.scale = self.N.scale.cuda()
+        self.N.loc = self.N.loc.to("cuda:0")#.cuda() # hack to get sampling on the GPU
+        self.N.scale = self.N.scale.to("cuda:0")#.cuda()
         self.kl = 0
 
     # this is for the beta vae
@@ -36,16 +38,20 @@ class Encoder(nn.Module):
         mu =  self.linear2(x)
         sigma = torch.exp(self.linear3(x))
         z = mu + sigma*self.N.sample(mu.shape)
-        self.kl = (sigma**2 + mu**2 - torch.log(sigma) - 1/2).sum()
+        # to keep the latent in the region of N(0,1)
+        # self.kl = (sigma**2 + mu**2 - torch.log(sigma) - 1/2).sum()
+        # self.kl = ((sigma**2 + mu**2)/2 - torch.log(sigma) - 1/2).sum()
+        self.kl = 0.5 * torch.sum(torch.exp(sigma) + mu**2 - 1 - sigma)
         return z
 
     def forward(self, x):
         # x = torch.flatten(x, start_dim=1)
         x = self.conv1(x)
+        x = self.bn1(x)
         x = F.relu(x)
         x = self.conv2(x)
+        x = self.bn2(x)
         x = F.relu(x)
-        x = self.bn1(x)
         x = x.view(-1, 5 * 12 * 12)
         x = F.relu(self.linear1(x))
 
@@ -56,10 +62,15 @@ class Encoder(nn.Module):
         return z
 
 class Decoder(nn.Module):
-    def __init__(self, latent_dims):
+    def __init__(self, latent_dims, channels):
         super(Decoder, self).__init__()
+        self.channels = channels
         self.conv1 = nn.ConvTranspose2d(5,4,3, stride=2, output_padding=1)
         self.conv2 = nn.ConvTranspose2d(4,3,3, stride=1)
+        self.conv3 = nn.ConvTranspose2d(3,self.channels,1, stride=1)
+
+        self.bn1 = nn.BatchNorm2d(4)
+        self.bn2 = nn.BatchNorm2d(3)
 
         self.linear1 = nn.Linear(latent_dims, 256)
         self.linear2 = nn.Linear(256, 720)
@@ -71,19 +82,22 @@ class Decoder(nn.Module):
         z = F.relu(self.linear2(z))
         z = z.reshape(-1, 5, 12, 12)
         z = self.conv1(z)
+        # z = self.bn1(z)
         z = F.relu(z)
         z = self.conv2(z)
-        return z.reshape((-1, 3, 28, 28))
+        # z = self.bn2(z)
+        z = F.relu(z)
+        z = self.conv3(z)
+        return z.reshape((-1, self.channels, 28, 28))
 
 
 class VariationalAutoencoder(nn.Module):
-    def __init__(self, latent_dims, mode="beta_vae"):
+    def __init__(self, latent_dims, mode="beta_vae", channels=2):
         super(VariationalAutoencoder, self).__init__()
-
+        self.channels = channels
         self.mode = mode
-        self.encoder = Encoder(latent_dims, mode)
-        self.decoder = Decoder(latent_dims)
-
+        self.encoder = Encoder(latent_dims, self.channels, mode)
+        self.decoder = Decoder(latent_dims, self.channels)
     def forward(self, x):
         z = self.encoder(x)
         return self.decoder(z)
@@ -94,6 +108,7 @@ class VariationalAutoencoder(nn.Module):
         running_loss = 0.
         running_diff = 0.
         running_kl = 0.
+        running_bce = 0.
         opt = torch.optim.Adam(self.parameters(), lr=lr)
         for epoch in range(epochs):
             i = 0
@@ -108,7 +123,13 @@ class VariationalAutoencoder(nn.Module):
                 opt.zero_grad()
                 x_hat = self.forward(x)
                 diff = ((x - x_hat)**2).sum()
-                loss = diff + self.encoder.kl                              
+                # diff = ((x - x_hat)**2).mean()
+                # bce = F.binary_cross_entropy_with_logits(x_hat, x, weight=torch.Tensor([.25], device=device), reduction="sum")
+                # bce = F.cross_entropy(x_hat, x, reduction="sum")
+                
+                loss = diff + self.encoder.kl             
+                # loss = self.encoder.kl                              
+                # loss = bce + 10 * self.encoder.kl + diff                        
                 loss.backward()
                 opt.step()
 
@@ -116,13 +137,14 @@ class VariationalAutoencoder(nn.Module):
                 running_loss += loss.item()
                 running_diff += diff.item()
                 running_kl += self.encoder.kl.item()
+                # running_bce += bce.item()
             
             last_loss = running_loss / i # loss per batch
             last_diff = running_diff / i # loss per batch
             last_kl = running_kl / i # loss per batch
-            print("Iteration:", epoch, "Loss:", round(last_loss,2), "Diff:", round(last_diff, 2), "KL:", last_kl)
+            last_bce = running_bce / i # loss per batch
+            print("Iteration:", epoch, "Loss:", round(last_loss,2), "Diff:", round(last_diff, 2), "KL:", round(last_kl,2), "BCE:", round(last_bce,2))
             running_loss = 0.
             running_diff = 0.
             running_kl = 0.
-        
-        
+            running_bce = 0.        
