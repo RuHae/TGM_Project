@@ -22,8 +22,10 @@ class Encoder(nn.Module):
         self.bn2 = nn.BatchNorm2d(12)
         
         self.linear1 = nn.Linear(432, 256)
-        self.linear2 = nn.Linear(256, latent_dims)
-        self.linear3 = nn.Linear(256, latent_dims)
+        # self.linear2 = nn.Linear(256, latent_dims)
+        self.linear2 = nn.Linear(432, latent_dims)
+        # self.linear3 = nn.Linear(256, latent_dims)
+        self.linear3 = nn.Linear(432, latent_dims)
         # self.linear1 = nn.Linear(2352, 512)
         # self.linear2 = nn.Linear(512, latent_dims)
         # self.linear3 = nn.Linear(512, latent_dims)
@@ -53,7 +55,7 @@ class Encoder(nn.Module):
         x = self.bn2(x)
         x = F.relu(x)
         x = x.view(-1, 12 * 6 * 6)
-        x = F.relu(self.linear1(x))
+        # x = F.relu(self.linear1(x))
 
         if self.mode == "beta_vae":
             z = self.sampling_beta(x)
@@ -72,14 +74,15 @@ class Decoder(nn.Module):
         self.bn1 = nn.BatchNorm2d(3)
         self.bn2 = nn.BatchNorm2d(3)
 
-        self.linear1 = nn.Linear(latent_dims, 256)
+        self.linear1 = nn.Linear(latent_dims, 432)
+        # self.linear1 = nn.Linear(latent_dims, 256)
         self.linear2 = nn.Linear(256, 432)
         # self.linear1 = nn.Linear(latent_dims, 512)
         # self.linear2 = nn.Linear(512, 2352)
 
     def forward(self, z):
         z = F.relu(self.linear1(z))
-        z = F.relu(self.linear2(z))
+        # z = F.relu(self.linear2(z))
         z = z.reshape(-1, 12, 6, 6)
         z = self.conv1(z)
         # z = self.bn1(z)
