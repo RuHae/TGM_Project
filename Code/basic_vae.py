@@ -15,13 +15,13 @@ class Encoder(nn.Module):
         self.channels = channels
         self.mode = mode
         # 28*28*3
-        self.conv1 = nn.Conv2d(self.channels, 4, 3, stride=1)
-        self.conv2 = nn.Conv2d(4, 5, 3, stride=2)   
+        self.conv1 = nn.Conv2d(self.channels, 6, 3, stride=2)
+        self.conv2 = nn.Conv2d(6, 12, 3, stride=2)   
 
-        self.bn1 = nn.BatchNorm2d(4)
-        self.bn2 = nn.BatchNorm2d(5)
+        self.bn1 = nn.BatchNorm2d(6)
+        self.bn2 = nn.BatchNorm2d(12)
         
-        self.linear1 = nn.Linear(720, 256)
+        self.linear1 = nn.Linear(432, 256)
         self.linear2 = nn.Linear(256, latent_dims)
         self.linear3 = nn.Linear(256, latent_dims)
         # self.linear1 = nn.Linear(2352, 512)
@@ -52,7 +52,7 @@ class Encoder(nn.Module):
         x = self.conv2(x)
         x = self.bn2(x)
         x = F.relu(x)
-        x = x.view(-1, 5 * 12 * 12)
+        x = x.view(-1, 12 * 6 * 6)
         x = F.relu(self.linear1(x))
 
         if self.mode == "beta_vae":
@@ -65,22 +65,22 @@ class Decoder(nn.Module):
     def __init__(self, latent_dims, channels):
         super(Decoder, self).__init__()
         self.channels = channels
-        self.conv1 = nn.ConvTranspose2d(5,4,3, stride=2, output_padding=1)
-        self.conv2 = nn.ConvTranspose2d(4,3,3, stride=1)
+        self.conv1 = nn.ConvTranspose2d(12,6,3, stride=2)
+        self.conv2 = nn.ConvTranspose2d(6,3,3, stride=2, output_padding=1)
         self.conv3 = nn.ConvTranspose2d(3,self.channels,1, stride=1)
 
-        self.bn1 = nn.BatchNorm2d(4)
+        self.bn1 = nn.BatchNorm2d(3)
         self.bn2 = nn.BatchNorm2d(3)
 
         self.linear1 = nn.Linear(latent_dims, 256)
-        self.linear2 = nn.Linear(256, 720)
+        self.linear2 = nn.Linear(256, 432)
         # self.linear1 = nn.Linear(latent_dims, 512)
         # self.linear2 = nn.Linear(512, 2352)
 
     def forward(self, z):
         z = F.relu(self.linear1(z))
         z = F.relu(self.linear2(z))
-        z = z.reshape(-1, 5, 12, 12)
+        z = z.reshape(-1, 12, 6, 6)
         z = self.conv1(z)
         # z = self.bn1(z)
         z = F.relu(z)
