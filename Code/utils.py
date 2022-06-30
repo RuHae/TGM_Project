@@ -62,7 +62,31 @@ def plot_real_vs_constructed(vae, test_dataset, device, plot=True):
         diff += ((test_img - img)**2).mean()
 
     if plot:
-        print((diff/8).item())        
+        print((diff/16).item())        
+        plt.figure(figsize=(20,20))
+        plt.imshow(imgs, cmap="gray")
+        plt.plot()
+
+    return imgs
+
+def plot_generated(vae, device, plot=True):
+    imgs = np.zeros((4*29, 8*29, 3))
+    diff = 0.
+    for i in range(8):
+        img_1 = vae.generate(device)
+        img_2 = vae.generate(device)
+
+        imgs[:28, i*28+(i*1):(i+1)*28+(i*1), :] = img_1
+        imgs[28+1:28*2+1, i*28+(i*1):(i+1)*28+(i*1), :] = img_2 
+
+    for i in range(8):
+        img_1 = vae.generate(device)
+        img_2 = vae.generate(device)
+
+        imgs[2*29+1:3*28+3, i*28+(i*1):(i+1)*28+(i*1), :] = img_1
+        imgs[3*28+4:, i*28+(i*1):(i+1)*28+(i*1), :] = img_2
+
+    if plot:    
         plt.figure(figsize=(20,20))
         plt.imshow(imgs, cmap="gray")
         plt.plot()
@@ -80,6 +104,8 @@ def load_dataset(data_flag, BATCH_SIZE = 64, download = True):
     # preprocessing
     data_transform = transforms.Compose([
         transforms.ToTensor(),
+        transforms.RandomHorizontalFlip(),
+        transforms.RandomVerticalFlip(),
         # transforms.Normalize(mean=[.5], std=[.5])
     ])
 

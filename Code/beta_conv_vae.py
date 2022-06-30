@@ -43,14 +43,9 @@ class Encoder(nn.Module):
 
     # this is for the beta vae
     def sampling_beta(self, x):
-        # mu =  self.linear_mu(x)
-        # sigma = torch.exp(self.linear_sigma(x))
-        # z = mu + sigma*self.N.sample(mu.shape)
-        # return z
         mu = self.linear_mu(x)
         log_var = self.linear_sigma(x)
 
-        # self.kl = 0.5 * torch.sum(torch.exp(sigma) + mu**2 - 1 - sigma)
         self.kl = torch.mean(-0.5 * torch.sum(1 + log_var - mu ** 2 - log_var.exp(), dim = 1), dim = 0)
 
         std = torch.exp(0.5 * log_var)
@@ -101,7 +96,7 @@ class Decoder(nn.Module):
                                 padding=1),
             nn.BatchNorm2d(hidden_dims[-1]),
             nn.LeakyReLU(),
-            nn.Conv2d(hidden_dims[-1], out_channels= 3,
+            nn.Conv2d(hidden_dims[-1], out_channels= self.channels,
                         kernel_size= 3),
             nn.Tanh())
 
@@ -118,6 +113,7 @@ class VariationalAutoencoder(nn.Module):
         super(VariationalAutoencoder, self).__init__()
         self.channels = channels
         self.mode = mode
+        self.latent_dims = latent_dims
         self.encoder = Encoder(latent_dims, self.channels, mode)
         self.decoder = Decoder(latent_dims, self.channels)
     def forward(self, x):
@@ -130,7 +126,6 @@ class VariationalAutoencoder(nn.Module):
         running_loss = 0.
         running_diff = 0.
         running_kl = 0.
-        running_bce = 0.
         self.opt = torch.optim.Adam(self.parameters(), lr=lr)
         for epoch in range(epochs):
             i = 0
@@ -146,14 +141,13 @@ class VariationalAutoencoder(nn.Module):
                 x_hat = self.forward(x)
                 diff = ((x - x_hat)**2).sum()
 
-                loss = diff + self.encoder.kl
-                # self.C_max = torch.tensor([25]).to(device)
-                # self.C_stop_iter = epochs
-                # self.num_iter = epoch
-                # kld_weight = 0.00025
-                # self.gamma = .0025
-                # C = torch.clamp(self.C_max/self.C_stop_iter * self.num_iter, 0, self.C_max.data[0])
-                # loss = diff + self.gamma * (self.encoder.kl - C).abs()             
+                # loss = diff + self.encoder.kl       
+                self.C_max = torch.tensor([25]).to(device)
+                self.C_stop_iter = epochs
+                self.num_iter = epoch
+                self.gamma = .25
+                C = torch.clamp(self.C_max/self.C_stop_iter * self.num_iter, 0, self.C_max.data[0])
+                loss = diff + self.gamma * (self.encoder.kl - C).abs() #  https://arxiv.org/pdf/1804.03599.pdf               
                 loss.backward()
                 self.opt.step()
 
@@ -161,18 +155,20 @@ class VariationalAutoencoder(nn.Module):
                 running_loss += loss.item()
                 running_diff += diff.item()
                 running_kl += self.encoder.kl.item()
-                # running_bce += bce.item()
             
             last_loss = running_loss / i # loss per batch
             last_diff = running_diff / i # loss per batch
             last_kl = running_kl / i # loss per batch
-            last_bce = running_bce / i # loss per batch
-            print("Iteration:", epoch, "Loss:", round(last_loss,2), "Diff:", round(last_diff, 2), "KL:", round(last_kl,2), "BCE:", round(last_bce,2))
+            print("Iteration:", epoch, "Loss:", round(last_loss,2), "Diff:", round(last_diff, 2), "KL:", round(last_kl,2))
             running_loss = 0.
             running_diff = 0.
             running_kl = 0.
-            running_bce = 0.        
-    
+     
+    def generate(self, device="cpu"):
+        z = torch.torch.distributions.Uniform(torch.Tensor([-1.8]), torch.Tensor([1.8])).sample([1,128]).view(1,128).to(device)
+        img = self.decoder.forward(z)
+        return img[0].moveaxis(0, 2).cpu().detach().numpy()
+
     def save_to_file(self, path):
         torch.save(self.state_dict(), path)
         print("Model safed to", path)
