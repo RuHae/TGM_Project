@@ -38,7 +38,7 @@ def plot_reconstructed(autoencoder, r0=(-5, 10), r1=(-10, 5), n=12, latent_dim=2
     plt.imshow(img, extent=[*r0, *r1])
     plt.show()
 
-def plot_real_vs_constructed(vae, test_dataset, device):
+def plot_real_vs_constructed(vae, test_dataset, device, plot=True):
     imgs = np.zeros((4*29, 8*29, 3))
     diff = 0.
     for i in range(8):
@@ -61,7 +61,37 @@ def plot_real_vs_constructed(vae, test_dataset, device):
 
         diff += ((test_img - img)**2).mean()
 
-    print((diff/8).item())        
-    plt.figure(figsize=(20,20))
-    plt.imshow(imgs, cmap="gray")
-    plt.plot()
+    if plot:
+        print((diff/8).item())        
+        plt.figure(figsize=(20,20))
+        plt.imshow(imgs, cmap="gray")
+        plt.plot()
+
+    return imgs
+
+def load_dataset(data_flag, BATCH_SIZE = 64, download = True):
+    info = INFO[data_flag]
+    task = info['task']
+    n_channels = info['n_channels']
+    n_classes = len(info['label'])
+
+    DataClass = getattr(medmnist, info['python_class'])
+
+    # preprocessing
+    data_transform = transforms.Compose([
+        transforms.ToTensor(),
+        # transforms.Normalize(mean=[.5], std=[.5])
+    ])
+
+    # load the data
+    train_dataset = DataClass(split='train', transform=data_transform, download=download)
+    test_dataset = DataClass(split='test', transform=data_transform, download=download)
+
+    pil_dataset = DataClass(split='train', download=download)
+
+    # encapsulate data into dataloader form
+    train_loader = data.DataLoader(dataset=train_dataset, batch_size=BATCH_SIZE, shuffle=True)
+    train_loader_at_eval = data.DataLoader(dataset=train_dataset, batch_size=2*BATCH_SIZE, shuffle=False)
+    test_loader = data.DataLoader(dataset=test_dataset, batch_size=2*BATCH_SIZE, shuffle=False)
+
+    return train_dataset, test_dataset, train_loader, train_loader_at_eval, test_loader

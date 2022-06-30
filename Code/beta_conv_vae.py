@@ -15,21 +15,26 @@ class Encoder(nn.Module):
         self.channels = channels
         self.mode = mode
         # 28*28*3
-        self.conv1 = nn.Conv2d(self.channels, 12, 3, stride=2)
-        self.conv2 = nn.Conv2d(12, 24, 3, stride=2)   
-        self.conv3 = nn.Conv2d(24, 48, 3, stride=2)   
+        modules = []
+        # if hidden_dims is None:
+        # hidden_dims = [28, 56, 112, 224]
+        hidden_dims = [32, 64, 128, 256]
 
-        self.bn1 = nn.BatchNorm2d(12)
-        self.bn2 = nn.BatchNorm2d(24)
+        in_channels = self.channels
+        for h_dim in hidden_dims:
+            modules.append(
+                nn.Sequential(
+                    nn.Conv2d(in_channels, out_channels=h_dim,
+                              kernel_size= 3, stride= 2, padding  = 1),
+                    nn.BatchNorm2d(h_dim),
+                    nn.LeakyReLU())
+            )
+            in_channels = h_dim
         
-        # self.linear1 = nn.Linear(432, 256)
-        # self.linear2 = nn.Linear(256, latent_dims)
-        self.linear2 = nn.Linear(192, latent_dims)
-        # self.linear3 = nn.Linear(256, latent_dims)
-        self.linear3 = nn.Linear(192, latent_dims)
-        # self.linear1 = nn.Linear(2352, 512)
-        # self.linear2 = nn.Linear(512, latent_dims)
-        # self.linear3 = nn.Linear(512, latent_dims)
+        self.encoder = nn.Sequential(*modules)
+
+        self.linear_mu = nn.Linear(hidden_dims[-1]*4, latent_dims)
+        self.linear_sigma = nn.Linear(hidden_dims[-1]*4, latent_dims)
 
         self.N = torch.distributions.Normal(0, 1)
         self.N.loc = self.N.loc.to("cuda:0")#.cuda() # hack to get sampling on the GPU
@@ -38,17 +43,12 @@ class Encoder(nn.Module):
 
     # this is for the beta vae
     def sampling_beta(self, x):
-        # mu =  self.linear2(x)
-        # sigma = torch.exp(self.linear3(x))
+        # mu =  self.linear_mu(x)
+        # sigma = torch.exp(self.linear_sigma(x))
         # z = mu + sigma*self.N.sample(mu.shape)
-        # # to keep the latent in the region of N(0,1)
-        # # self.kl = (sigma**2 + mu**2 - torch.log(sigma) - 1/2).sum()
-        # # self.kl = ((sigma**2 + mu**2)/2 - torch.log(sigma) - 1/2).sum()
-        # self.kl = 0.5 * torch.sum(torch.exp(sigma) + mu**2 - 1 - sigma)
         # return z
-
-        mu = self.linear2(x)
-        log_var = self.linear3(x)
+        mu = self.linear_mu(x)
+        log_var = self.linear_sigma(x)
 
         # self.kl = 0.5 * torch.sum(torch.exp(sigma) + mu**2 - 1 - sigma)
         self.kl = torch.mean(-0.5 * torch.sum(1 + log_var - mu ** 2 - log_var.exp(), dim = 1), dim = 0)
@@ -58,17 +58,8 @@ class Encoder(nn.Module):
         return eps * std + mu
 
     def forward(self, x):
-        # x = torch.flatten(x, start_dim=1)
-        x = self.conv1(x)
-        x = F.relu(x)
-        # x = self.bn1(x)
-        x = self.conv2(x)
-        x = F.relu(x)
-        # x = self.bn2(x)
-        x = self.conv3(x)
-        x = F.relu(x)
-        x = x.view(-1, 48 * 2 * 2)
-        # x = F.relu(self.linear1(x))
+        x = self.encoder(x)
+        x = torch.flatten(x, start_dim=1)
 
         if self.mode == "beta_vae":
             z = self.sampling_beta(x)
@@ -80,36 +71,45 @@ class Decoder(nn.Module):
     def __init__(self, latent_dims, channels):
         super(Decoder, self).__init__()
         self.channels = channels
-        self.conv1 = nn.ConvTranspose2d(48,24,3, stride=2)
-        self.conv2 = nn.ConvTranspose2d(24,12,4, stride=2)
-        self.conv3 = nn.ConvTranspose2d(12,4,4, stride=2)
-        self.conv4 = nn.ConvTranspose2d(4,self.channels,3, stride=2)
-        self.conv5 = nn.Conv2d(3,3,1, stride=2, padding=1)
+        modules = []
+        # if hidden_dims is None:
+        # hidden_dims = [28, 56, 112, 224]
+        hidden_dims = [32, 64, 128, 256]
 
-        self.bn1 = nn.BatchNorm2d(3)
-        self.bn2 = nn.BatchNorm2d(3)
+        self.decoder_input = nn.Linear(latent_dims, hidden_dims[-1] * 4)
 
-        self.linear1 = nn.Linear(latent_dims, 192)
-        # self.linear1 = nn.Linear(latent_dims, 256)
-        # self.linear2 = nn.Linear(256, 432)
-        # self.linear1 = nn.Linear(latent_dims, 512)
-        # self.linear2 = nn.Linear(512, 2352)
+        hidden_dims.reverse()
+        for i in range(len(hidden_dims) - 1):
+            modules.append(
+                nn.Sequential(
+                    nn.ConvTranspose2d(hidden_dims[i],
+                                        hidden_dims[i + 1],
+                                        kernel_size=3,
+                                        stride = 2,
+                                        padding=1,
+                                        output_padding=1),
+                    nn.BatchNorm2d(hidden_dims[i + 1]),
+                    nn.LeakyReLU())
+            )
+        self.decoder = nn.Sequential(*modules)
+
+        self.final_layer = nn.Sequential(
+            nn.ConvTranspose2d(hidden_dims[-1],
+                                hidden_dims[-1],
+                                kernel_size=2,
+                                stride=2,
+                                padding=1),
+            nn.BatchNorm2d(hidden_dims[-1]),
+            nn.LeakyReLU(),
+            nn.Conv2d(hidden_dims[-1], out_channels= 3,
+                        kernel_size= 3),
+            nn.Tanh())
 
     def forward(self, z):
-        z = F.relu(self.linear1(z))
-        # z = F.relu(self.linear2(z))
-        z = z.reshape(-1, 48, 2, 2)
-        z = self.conv1(z)
-        # z = self.bn1(z)
-        z = F.relu(z)
-        z = self.conv2(z)
-        # z = self.bn2(z)
-        z = F.relu(z)
-        z = self.conv3(z)
-        z = F.relu(z)
-        z = self.conv4(z)
-        z = F.relu(z)
-        z = self.conv5(z)
+        z = self.decoder_input(z)
+        z = z.view(-1, 256,2,2)
+        z = self.decoder(z)
+        z = self.final_layer(z)
         return z.reshape((-1, self.channels, 28, 28))
 
 
@@ -145,13 +145,15 @@ class VariationalAutoencoder(nn.Module):
                 self.opt.zero_grad()
                 x_hat = self.forward(x)
                 diff = ((x - x_hat)**2).sum()
-                # diff = ((x - x_hat)**2).mean()
-                # bce = F.binary_cross_entropy_with_logits(x_hat, x, weight=torch.Tensor([.25], device=device), reduction="sum")
-                # bce = F.cross_entropy(x_hat, x, reduction="sum")
-                
-                loss = diff + self.encoder.kl             
-                # loss = self.encoder.kl                              
-                # loss = bce + 10 * self.encoder.kl + diff                        
+
+                loss = diff + self.encoder.kl
+                # self.C_max = torch.tensor([25]).to(device)
+                # self.C_stop_iter = epochs
+                # self.num_iter = epoch
+                # kld_weight = 0.00025
+                # self.gamma = .0025
+                # C = torch.clamp(self.C_max/self.C_stop_iter * self.num_iter, 0, self.C_max.data[0])
+                # loss = diff + self.gamma * (self.encoder.kl - C).abs()             
                 loss.backward()
                 self.opt.step()
 
