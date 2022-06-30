@@ -12,7 +12,8 @@ import io
 
 from beta_conv_vae import VariationalAutoencoder
 from utils import plot_real_vs_constructed 
-from utils import plot_generated 
+from utils import plot_generated  
+from utils import generate_gif 
 from utils import load_dataset 
 
 
@@ -59,8 +60,9 @@ def results_BloodMNIST():
     
     img_rvg = prepare_imgs(imgs_real_vs_recon)
     img_gen = prepare_imgs(imgs_gen)
+    img_gif = generate_gif(vae, test_dataset_blood, img_nr=45, device=device)
 
-    return render_template('results.html', img_data_rvg=img_rvg, img_data_gen=img_gen)
+    return render_template('results.html', img_data_rvg=img_rvg, img_data_gen=img_gen, img_gif=img_gif)
 
 
 

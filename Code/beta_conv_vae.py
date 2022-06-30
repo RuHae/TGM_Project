@@ -164,8 +164,9 @@ class VariationalAutoencoder(nn.Module):
             running_diff = 0.
             running_kl = 0.
      
-    def generate(self, device="cpu"):
-        z = torch.torch.distributions.Uniform(torch.Tensor([-1.8]), torch.Tensor([1.8])).sample([1,128]).view(1,128).to(device)
+    def generate(self, device="cpu", z=None):
+        if z == None:
+            z = torch.torch.distributions.Uniform(torch.Tensor([-1.8]), torch.Tensor([1.8])).sample([1,128]).view(1,128).to(device)
         img = self.decoder.forward(z)
         return img[0].moveaxis(0, 2).cpu().detach().numpy()
 

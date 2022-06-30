@@ -1,6 +1,10 @@
 # Here we can put helper functions
 import numpy as np
 import matplotlib.pyplot as plt
+from PIL import Image
+import imageio
+import base64
+import io
 import medmnist
 from medmnist import INFO, Evaluator
 import torch
@@ -39,7 +43,7 @@ def plot_reconstructed(autoencoder, r0=(-5, 10), r1=(-10, 5), n=12, latent_dim=2
     plt.show()
 
 def plot_real_vs_constructed(vae, test_dataset, device, plot=True):
-    imgs = np.zeros((4*29, 8*29, 3))
+    imgs = np.ones((4*29, 8*29, 3))
     diff = 0.
     for i in range(8):
         test_img = test_dataset[i][0][None,:,:,:].to(device)
@@ -70,7 +74,7 @@ def plot_real_vs_constructed(vae, test_dataset, device, plot=True):
     return imgs
 
 def plot_generated(vae, device, plot=True):
-    imgs = np.zeros((4*29, 8*29, 3))
+    imgs = np.ones((4*29, 8*29, 3))
     diff = 0.
     for i in range(8):
         img_1 = vae.generate(device)
@@ -92,6 +96,59 @@ def plot_generated(vae, device, plot=True):
         plt.plot()
 
     return imgs
+
+def modify_latent(vae, test_dataset, img_nr=3, device="cpu", plot=True):
+    imgs = np.ones((20*29, 20*29, 3))
+    # z = torch.torch.distributions.Uniform(torch.Tensor([-1.8]), torch.Tensor([1.8])).sample([1,128]).view(1,128).to(device)
+    test_img = test_dataset[img_nr][0][None,:,:,:].to(device)
+    z = vae.encoder.forward(test_img)
+    z_orig = z.clone()
+    r = -1
+    for j in range(20):
+        z = z_orig.clone()
+        idx = j #np.random.randint(0,128)
+        # z[0, j*8:(j+1)*8] = -1.8
+        if j == 10:
+            r = 1
+        for i in range(20):
+            # z[0, j*8:(j+1)*8] += 0.1
+            # z += 0.01 * abs(j-10) * 10 * r
+            z += 0.01 * abs(j-10) * abs(i-10) * r
+            img_1 = vae.generate(device, z=z)
+            imgs[j*(28+1):(j+1)*28+(j*1), i*28+(i*1):(i+1)*28+(i*1), :] = img_1
+
+
+    if plot:    
+        plt.figure(figsize=(100,100))
+        plt.imshow(imgs, cmap="gray")
+        plt.plot()
+
+    return imgs
+
+def generate_gif(vae, test_dataset, img_nr=3, device="cpu", plot=True):
+    test_img = test_dataset[img_nr][0][None,:,:,:].to(device)
+    z = vae.encoder.forward(test_img)
+    z_orig = z.clone()
+    
+    gif = []
+    for j in range(100):
+        z = z_orig.clone()
+        z += 0.02 * (j-50)
+        img_1 = vae.generate(device, z=z)
+        im = Image.fromarray(np.uint8(img_1*255))
+        gif.append(im)
+
+    data = io.BytesIO()
+    # gif[0].save(data, 'GIF', save_all=True,optimize=False, append_images=gif[1:], loop=0, duration=500)
+    imageio.mimwrite(data, gif, "GIF")
+    encoded_img_data = base64.b64encode(data.getvalue())
+    
+    # if plot:    
+    #     plt.figure(figsize=(100,100))
+    #     plt.imshow(gif)
+    #     plt.plot()
+
+    return encoded_img_data.decode('utf-8')
 
 def load_dataset(data_flag, BATCH_SIZE = 64, download = True):
     info = INFO[data_flag]
