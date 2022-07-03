@@ -184,7 +184,7 @@ class Encoder(nn.Module):
 
 
 class Decoder(nn.Module):
-    def __init__(self, in_channels, num_hiddens, num_residual_layers, num_residual_hiddens):
+    def __init__(self, in_channels, num_hiddens, num_residual_layers, num_residual_hiddens,output_channel):
         super(Decoder, self).__init__()
 
         self._conv_1 = nn.Conv2d(in_channels=in_channels,
@@ -203,7 +203,7 @@ class Decoder(nn.Module):
                                                 stride=2, padding=1)
 
         self._conv_trans_2 = nn.ConvTranspose2d(in_channels=num_hiddens // 2,
-                                                out_channels=3,
+                                                out_channels=output_channel,
                                                 kernel_size=4,
                                                 stride=2, padding=1)
 
@@ -251,10 +251,10 @@ class Model(nn.Module):
 
 class VariationalAutoencoder(nn.Module):
     def __init__(self, num_hiddens, num_residual_layers, num_residual_hiddens,
-                 num_embeddings, embedding_dim, commitment_cost, decay=0,):
+                 num_embeddings, embedding_dim, commitment_cost, decay=0,input_channel=1,output_channel=1):
         super(VariationalAutoencoder, self).__init__()
 
-        self._encoder = Encoder(3, num_hiddens,
+        self._encoder = Encoder(input_channel, num_hiddens,
                                 num_residual_layers,
                                 num_residual_hiddens)
         self._pre_vq_conv = nn.Conv2d(in_channels=num_hiddens,
@@ -270,7 +270,7 @@ class VariationalAutoencoder(nn.Module):
         self._decoder = Decoder(embedding_dim,
                                 num_hiddens,
                                 num_residual_layers,
-                                num_residual_hiddens)
+                                num_residual_hiddens,output_channel=output_channel)
 
     def forward(self, x):
         z = self._encoder(x)
