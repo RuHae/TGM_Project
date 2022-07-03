@@ -135,6 +135,10 @@ def generate_gif(vae, test_dataset, img_nr=3, device="cpu", plot=True):
         z = z_orig.clone()
         z += 0.02 * (j-50)
         img_1 = vae.generate(device, z=z)
+        h,w,c = img_1.shape
+        if c == 1:
+            img_1 = img_1.reshape(h,w)
+            
         im = Image.fromarray(np.uint8(img_1*255))
         gif.append(im)
 

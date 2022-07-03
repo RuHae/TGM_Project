@@ -6,11 +6,12 @@
     <title>Test Image</title>
 </head>
 <body>
+    <div class="button-element" onclick="window.location.href='/home'"><button>Home</button></div>
     <h1>Real vs Reconstructed</h1>
-    <img id="picture" src="data:image/jpeg;base64,{{ img_data_rvg }}">
+    <img id="picture" width="1000" src="data:image/jpeg;base64,{{ img_data_rvg }}">
     <h1>Generated</h1>
-    <img id="picture" src="data:image/jpeg;base64,{{ img_data_gen }}">
+    <img id="picture" width="1000" src="data:image/jpeg;base64,{{ img_data_gen }}">
     <h1>Latent Vector Modifications</h1>
-    <img id="picture" src="data:image/gif;base64,{{ img_gif }}">
+    <img id="picture" width="300" src="data:image/gif;base64,{{ img_gif }}">
 </body>
 </html>
