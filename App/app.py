@@ -1,8 +1,11 @@
 # app.py
+from crypt import methods
 import sys
+
+from requests import request
 sys.path.insert(1, '../Code')
 
-from flask import Flask, render_template  
+from flask import Flask, render_template, request  
 import torch
 import numpy as np
 
@@ -26,14 +29,14 @@ _, test_dataset_organ, _, _, _ = load_dataset("organamnist")
 latent_dims = 128 #hyperparameter we can optimze?
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-vae_blood = VariationalAutoencoder(latent_dims, mode="beta_vae", channels=3).to(device) # GPU
-vae_blood.load_from_file(path="../Code/blood_beta_v6")
+beta_vae_blood = VariationalAutoencoder(latent_dims, mode="beta_vae", channels=3).to(device) # GPU
+beta_vae_blood.load_from_file(path="../Code/models/blood_beta_v6")
 
-vae_organ = VariationalAutoencoder(latent_dims, mode="beta_vae", channels=1).to(device) # GPU
-vae_organ.load_from_file(path="../Code/organ_beta_v1")
+beta_vae_organ = VariationalAutoencoder(latent_dims, mode="beta_vae", channels=1).to(device) # GPU
+beta_vae_organ.load_from_file(path="../Code/models/organ_beta_v1")
 
-vae_path = VariationalAutoencoder(latent_dims, mode="beta_vae", channels=3).to(device) # GPU
-vae_path.load_from_file(path="../Code/path_beta")
+beta_vae_path = VariationalAutoencoder(latent_dims, mode="beta_vae", channels=3).to(device) # GPU
+beta_vae_path.load_from_file(path="../Code/models/path_beta_v2")
 
 def prepare_imgs(imgs):
     im = Image.fromarray(np.uint8(imgs*255))
@@ -50,41 +53,50 @@ def home(): # route handler function
     # returning a response
     return render_template('index.html')
 
-@app.route("/results_BloodMNIST", methods=['GET']) 
-def results_BloodMNIST():
+@app.route("/results", methods=["GET", "POST"])
+def results():
+    model_name = request.form.get("model")
+    dataset_name = request.form.get("dataset")
+    print(request.form.get("dataset"))
+    print(request.form.get("model"))
 
-    imgs_real_vs_recon = plot_real_vs_constructed(vae_blood, test_dataset_blood, device, plot=False)
-    imgs_gen = plot_generated(vae_blood, device, plot=False)
+
+    if dataset_name == "PathMNIST":
+        dataset = test_dataset_path
+        if model_name == "beta-vae":
+            model = beta_vae_path
+        elif model_name == "vq-vae":
+            model = vq_vae_path
+        else:
+            print("Error: model not found")
+
+    elif dataset_name == "BloodMNIST":
+        dataset = test_dataset_blood
+        if model_name == "beta-vae":
+            model = beta_vae_blood
+        elif model_name == "vq-vae":
+            model = vq_vae_blood
+        else:
+            print("Error: model not found")
+
+    elif dataset_name == "OrganAMNIST":
+        dataset = test_dataset_organ
+        if model_name == "beta-vae":
+            model = beta_vae_organ
+        elif model_name == "vq-vae":
+            model = vq_vae_organ
+        else:
+            print("Error: model not found")
+    else:
+        print("Error: dataset not found")
+
+    
+
+    imgs_real_vs_recon = plot_real_vs_constructed(model, dataset, device, plot=False)
+    imgs_gen = plot_generated(model, device, plot=False)
     
     img_rvg = prepare_imgs(imgs_real_vs_recon)
     img_gen = prepare_imgs(imgs_gen)
-    img_gif = generate_gif(vae_blood, test_dataset_blood, img_nr=45, device=device)
+    img_gif = generate_gif(model, dataset, img_nr=45, device=device) # TODO: add random image number
 
-    return render_template('results.html', img_data_rvg=img_rvg, img_data_gen=img_gen, img_gif=img_gif)
-
-@app.route("/results_OrganMNIST", methods=['GET']) 
-def results_OrganMNIST():
-    
-    imgs_real_vs_recon = plot_real_vs_constructed(vae_organ, test_dataset_organ, device, plot=False)
-    imgs_gen = plot_generated(vae_organ, device, plot=False)
-    
-    img_rvg = prepare_imgs(imgs_real_vs_recon)
-    img_gen = prepare_imgs(imgs_gen)
-    img_gif = generate_gif(vae_organ, test_dataset_organ, img_nr=45, device=device)
-
-    return render_template('results.html', img_data_rvg=img_rvg, img_data_gen=img_gen, img_gif=img_gif)
-
-@app.route("/results_PathMNIST", methods=['GET']) 
-def results_PathMNIST():
-    
-    imgs_real_vs_recon = plot_real_vs_constructed(vae_path, test_dataset_path, device, plot=False)
-    imgs_gen = plot_generated(vae_path, device, plot=False)
-    
-    img_rvg = prepare_imgs(imgs_real_vs_recon)
-    img_gen = prepare_imgs(imgs_gen)
-    img_gif = generate_gif(vae_path, test_dataset_path, img_nr=45, device=device)
-
-    return render_template('results.html', img_data_rvg=img_rvg, img_data_gen=img_gen, img_gif=img_gif)
-
-if __name__ == "__main__":
-    app.run(debug=True)
+    return render_template('results.html',model_name=str(model_name).upper(), dataset_name=str(dataset_name), img_data_rvg=img_rvg, img_data_gen=img_gen, img_gif=img_gif)

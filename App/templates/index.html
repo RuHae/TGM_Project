@@ -6,14 +6,26 @@
     </head>
     <body>
         <h1>Hello to our TGM Project VAE</h1>
-        <div>
-            <p>Here you can choose from which <a href="https://medmnist.com/" target="_blank">MedMNIST</a> dataset you want to sample</p>
-        </div>
-        <div class="container">
-            <div class="button-element" onclick="window.location.href='/results_PathMNIST'"><button>PathMNIST</button></div>
-            <div class="button-element" onclick="window.location.href='/results_BloodMNIST'"><button>BloodMNIST</button></div>
-            <div class="button-element" onclick="window.location.href='/results_OrganMNIST'"><button>OrganAMNIST</button></div>
-        </div>
-        
+        <form method="post" action="/results">
+            <div>
+                <p>First choose a model:</p>
+                <select name="model" id="models">
+                    <option value="beta-vae">Beta-VAE</option>
+                    <option value="vq-vae">VQ-VAE</option>
+                </select>
+            </div>
+            <div>
+                <p>Here you can choose from which <a href="https://medmnist.com/" target="_blank">MedMNIST</a> dataset you want to sample</p>
+            </div>
+            <div class="container">
+                <input type="submit" name="dataset" value="PathMNIST">
+                <input type="submit" name="dataset" value="BloodMNIST">
+                <input type="submit" name="dataset" value="OrganAMNIST">
+
+                <!-- <div class="button-element" onclick="window.location.href='/results_PathMNIST'"><button>PathMNIST</button></div>
+                <div class="button-element" onclick="window.location.href='/results_BloodMNIST'"><button>BloodMNIST</button></div>
+                <div class="button-element" onclick="window.location.href='/results_OrganMNIST'"><button>OrganAMNIST</button></div> -->
+            </div>
+        </form>        
     </body>
 </html>

@@ -47,9 +47,9 @@ def plot_real_vs_constructed(vae, test_dataset, device, plot=True):
     diff = 0.
     for i in range(8):
         test_img = test_dataset[i][0][None,:,:,:].to(device)
-        lat = vae.encoder.forward(test_img)
-        img = vae.decoder.forward(lat)
-
+        # lat = vae.encoder.forward(test_img) # change to only forward of vae so it is universal
+        # img = vae.decoder.forward(lat)
+        img = vae.forward(test_img)
         imgs[:28, i*28+(i*1):(i+1)*28+(i*1), :] = test_img[0].moveaxis(0, 2).cpu().detach().numpy()
         imgs[28+1:28*2+1, i*28+(i*1):(i+1)*28+(i*1), :] = img[0].moveaxis(0, 2).cpu().detach().numpy()
 
@@ -57,9 +57,9 @@ def plot_real_vs_constructed(vae, test_dataset, device, plot=True):
 
     for i in range(8):
         test_img = test_dataset[i+8][0][None,:,:,:].to(device)
-        lat = vae.encoder.forward(test_img)
-        img = vae.decoder.forward(lat)
-
+        # lat = vae.encoder.forward(test_img)
+        # img = vae.decoder.forward(lat)
+        img = vae.forward(test_img)
         imgs[2*29+1:3*28+3, i*28+(i*1):(i+1)*28+(i*1), :] = test_img[0].moveaxis(0, 2).cpu().detach().numpy()
         imgs[3*28+4:, i*28+(i*1):(i+1)*28+(i*1), :] = img[0].moveaxis(0, 2).cpu().detach().numpy()
 
@@ -101,7 +101,7 @@ def modify_latent(vae, test_dataset, img_nr=3, device="cpu", plot=True):
     imgs = np.ones((20*29, 20*29, 3))
     # z = torch.torch.distributions.Uniform(torch.Tensor([-1.8]), torch.Tensor([1.8])).sample([1,128]).view(1,128).to(device)
     test_img = test_dataset[img_nr][0][None,:,:,:].to(device)
-    z = vae.encoder.forward(test_img)
+    z = vae.encoder(test_img)
     z_orig = z.clone()
     r = -1
     for j in range(20):
@@ -127,7 +127,7 @@ def modify_latent(vae, test_dataset, img_nr=3, device="cpu", plot=True):
 
 def generate_gif(vae, test_dataset, img_nr=3, device="cpu", plot=True):
     test_img = test_dataset[img_nr][0][None,:,:,:].to(device)
-    z = vae.encoder.forward(test_img)
+    z = vae.encoder(test_img)
     z_orig = z.clone()
     
     gif = []

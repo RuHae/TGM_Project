@@ -7,11 +7,12 @@
 </head>
 <body>
     <div class="button-element" onclick="window.location.href='/home'"><button>Home</button></div>
-    <h1>Real vs Reconstructed</h1>
+    <h1>Results of {{ model_name }} on {{ dataset_name }} dataset</h1>
+    <h2>Real vs Reconstructed</h2>
     <img id="picture" width="1000" src="data:image/jpeg;base64,{{ img_data_rvg }}">
-    <h1>Generated</h1>
+    <h2>Generated</h2>
     <img id="picture" width="1000" src="data:image/jpeg;base64,{{ img_data_gen }}">
-    <h1>Latent Vector Modifications</h1>
+    <h2>Latent Vector Modifications</h2>
     <img id="picture" width="300" src="data:image/gif;base64,{{ img_gif }}">
 </body>
 </html>
