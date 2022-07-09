@@ -319,9 +319,9 @@ class VariationalAutoencoder(nn.Module):
                 print('perplexity: %.3f' % np.mean(train_res_perplexity[-100:]))
                 print()
 
-    def generate(self, device="cpu", z=None):
+    def generate(self, device="cpu", z=None, u_bound=13, l_bound=0):
         if z == None:
-            z = torch.torch.distributions.Uniform(torch.Tensor([0]), torch.Tensor([13])).sample([1, self.num_hiddens,7,7]).view(1,
+            z = torch.torch.distributions.Uniform(torch.Tensor([l_bound]), torch.Tensor([u_bound])).sample([1, self.num_hiddens,7,7]).view(1,
                                                                                                                    self.num_hiddens,7,7).to(
                 device)
         z = self._pre_vq_conv(z)

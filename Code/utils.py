@@ -42,14 +42,22 @@ def plot_reconstructed(autoencoder, r0=(-5, 10), r1=(-10, 5), n=12, latent_dim=2
     plt.imshow(img, extent=[*r0, *r1])
     plt.show()
 
-def plot_real_vs_constructed(vae, test_dataset, device, plot=True):
+def plot_real_vs_constructed(vae, test_dataset, device, plot=True, model="beta-vae"):
     imgs = np.ones((4*29, 8*29, 3))
     diff = 0.
     for i in range(8):
         test_img = test_dataset[i][0][None,:,:,:].to(device)
-        # lat = vae.encoder.forward(test_img) # change to only forward of vae so it is universal
-        # img = vae.decoder.forward(lat)
-        img = vae.forward(test_img)
+
+        if model == "beta-vae":
+            img = vae.forward(test_img)
+        elif model == "vq-vae":
+            _, img, _ = vae.forward(test_img)
+        else:
+            print("Error: please supply model name")
+
+        img[img > 1] = 1
+        img[img < 0] = 0
+
         imgs[:28, i*28+(i*1):(i+1)*28+(i*1), :] = test_img[0].moveaxis(0, 2).cpu().detach().numpy()
         imgs[28+1:28*2+1, i*28+(i*1):(i+1)*28+(i*1), :] = img[0].moveaxis(0, 2).cpu().detach().numpy()
 
@@ -57,9 +65,17 @@ def plot_real_vs_constructed(vae, test_dataset, device, plot=True):
 
     for i in range(8):
         test_img = test_dataset[i+8][0][None,:,:,:].to(device)
-        # lat = vae.encoder.forward(test_img)
-        # img = vae.decoder.forward(lat)
-        img = vae.forward(test_img)
+
+        if model == "beta-vae":
+            img = vae.forward(test_img)
+        elif model == "vq-vae":
+            _, img, _ = vae.forward(test_img)
+        else:
+            print("Error: please supply model name")
+
+        img[img > 1] = 1
+        img[img < 0] = 0
+
         imgs[2*29+1:3*28+3, i*28+(i*1):(i+1)*28+(i*1), :] = test_img[0].moveaxis(0, 2).cpu().detach().numpy()
         imgs[3*28+4:, i*28+(i*1):(i+1)*28+(i*1), :] = img[0].moveaxis(0, 2).cpu().detach().numpy()
 
@@ -73,19 +89,29 @@ def plot_real_vs_constructed(vae, test_dataset, device, plot=True):
 
     return imgs
 
-def plot_generated(vae, device, plot=True):
+def plot_generated(vae, device, plot=True, u_bound=1.8, l_bound=-1.8):
     imgs = np.ones((4*29, 8*29, 3))
     diff = 0.
     for i in range(8):
-        img_1 = vae.generate(device)
-        img_2 = vae.generate(device)
+        img_1 = vae.generate(device, u_bound=u_bound, l_bound=l_bound)
+        img_2 = vae.generate(device, u_bound=u_bound, l_bound=l_bound)
+
+        img_1[img_1 > 1] = 1
+        img_1[img_1 < 0] = 0
+        img_2[img_1 > 1] = 1
+        img_2[img_1 < 0] = 0
 
         imgs[:28, i*28+(i*1):(i+1)*28+(i*1), :] = img_1
         imgs[28+1:28*2+1, i*28+(i*1):(i+1)*28+(i*1), :] = img_2 
 
     for i in range(8):
-        img_1 = vae.generate(device)
-        img_2 = vae.generate(device)
+        img_1 = vae.generate(device, u_bound=u_bound, l_bound=l_bound)
+        img_2 = vae.generate(device, u_bound=u_bound, l_bound=l_bound)
+
+        img_1[img_1 > 1] = 1
+        img_1[img_1 < 0] = 0
+        img_2[img_1 > 1] = 1
+        img_2[img_1 < 0] = 0
 
         imgs[2*29+1:3*28+3, i*28+(i*1):(i+1)*28+(i*1), :] = img_1
         imgs[3*28+4:, i*28+(i*1):(i+1)*28+(i*1), :] = img_2
@@ -97,11 +123,18 @@ def plot_generated(vae, device, plot=True):
 
     return imgs
 
-def modify_latent(vae, test_dataset, img_nr=3, device="cpu", plot=True):
+def modify_latent(vae, test_dataset, img_nr=3, device="cpu", plot=True, model="beta-vae"):
     imgs = np.ones((20*29, 20*29, 3))
     # z = torch.torch.distributions.Uniform(torch.Tensor([-1.8]), torch.Tensor([1.8])).sample([1,128]).view(1,128).to(device)
     test_img = test_dataset[img_nr][0][None,:,:,:].to(device)
-    z = vae.encoder(test_img)
+
+    if model == "beta-vae":
+            z = vae.encoder(test_img)
+    elif model == "vq-vae":
+        z = vae._encoder(test_img)
+    else:
+        print("Error: please supply model name")
+
     z_orig = z.clone()
     r = -1
     for j in range(20):
@@ -125,9 +158,16 @@ def modify_latent(vae, test_dataset, img_nr=3, device="cpu", plot=True):
 
     return imgs
 
-def generate_gif(vae, test_dataset, img_nr=3, device="cpu", plot=True):
+def generate_gif(vae, test_dataset, img_nr=3, device="cpu", plot=True, model="beta-vae"):
     test_img = test_dataset[img_nr][0][None,:,:,:].to(device)
-    z = vae.encoder(test_img)
+
+    if model == "beta-vae":
+            z = vae.encoder(test_img)
+    elif model == "vq-vae":
+        z = vae._encoder(test_img)
+    else:
+        print("Error: please supply model name")
+
     z_orig = z.clone()
     
     gif = []
@@ -138,7 +178,11 @@ def generate_gif(vae, test_dataset, img_nr=3, device="cpu", plot=True):
         h,w,c = img_1.shape
         if c == 1:
             img_1 = img_1.reshape(h,w)
-            
+        
+        img_1[img_1 > 1] = 1
+        img_1[img_1 < 0] = 0
+
+
         im = Image.fromarray(np.uint8(img_1*255))
         gif.append(im)
 
