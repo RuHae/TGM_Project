@@ -240,6 +240,7 @@ class Model(nn.Module):
                                 num_hiddens,
                                 num_residual_layers,
                                 num_residual_hiddens)
+        self.epoch = None
 
     def forward(self, x):
         z = self._encoder(x)
@@ -282,6 +283,7 @@ class VariationalAutoencoder(nn.Module):
 
     def train(self, data, epochs=5, lr=0.001, device="cpu", fast=False, data_variance=0.06328692405746414):
         # only for fast training
+        self.epochs = epochs
         nsamples = 100
         train_res_recon_error = []
         train_res_perplexity = []
@@ -313,3 +315,31 @@ class VariationalAutoencoder(nn.Module):
                 print('recon_error: %.3f' % np.mean(train_res_recon_error[-100:]))
                 print('perplexity: %.3f' % np.mean(train_res_perplexity[-100:]))
                 print()
+
+    def generate(self, device="cpu", z=None):
+        if z == None:
+            z = torch.torch.distributions.Uniform(torch.Tensor([-1.8]), torch.Tensor([1.8])).sample([1, 128,7,7]).view(1,
+                                                                                                                   128,7,7).to(
+                device)
+        img = self.decoder.forward(z)
+        return img[0].moveaxis(0, 2).cpu().detach().numpy()
+
+    def save_to_file(self, path):
+        torch.save({
+            'epoch': self.epochs,
+            'encoder': self._encoder.state_dict(),
+            'pre_vq_conv': self._pre_vq_conv.state_dict(),
+            "vq_vae": self._vq_vae.state_dict(),
+            "decoder": self._decoder.state_dict()
+        }, path)
+        print("Model safed to", path)
+        return None
+
+    def load_from_file(self, path):
+        checkpoint = torch.load(path)
+        self._encoder.load_state_dict(checkpoint['encoder'])
+        self._pre_vq_conv.load_state_dict(checkpoint['pre_vq_conv'])
+        self._decoder.load_state_dict(checkpoint["decoder"])
+        self._vq_vae.load_state_dict(checkpoint["vq_vae"])
+        print("Model loaded from", path)
+        return None
