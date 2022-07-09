@@ -116,6 +116,7 @@ class VariationalAutoencoder(nn.Module):
         self.latent_dims = latent_dims
         self.encoder = Encoder(latent_dims, self.channels, mode)
         self.decoder = Decoder(latent_dims, self.channels)
+        
     def forward(self, x):
         z = self.encoder(x)
         return self.decoder(z)
