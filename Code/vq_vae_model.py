@@ -325,16 +325,14 @@ class VariationalAutoencoder(nn.Module):
                                                                                                                    self.num_hiddens,7,7).to(
                 device)
         z = self._pre_vq_conv(z)
-        # print("shape after _pre_vq_conv",z.shape)
         loss, quantized, perplexity, _ = self._vq_vae(z)
-        # print("shape after _vq_vae",quantized.shape)
 
         img = self._decoder.forward(quantized)
         return img[0].moveaxis(0, 2).cpu().detach().numpy()
 
     def save_to_file(self, path):
         torch.save({
-            'epoch': self.epochs,
+            'epoch': self.epoch,
             'encoder': self._encoder.state_dict(),
             'pre_vq_conv': self._pre_vq_conv.state_dict(),
             "vq_vae": self._vq_vae.state_dict(),
