@@ -16,10 +16,11 @@ class Encoder(nn.Module):
         self.mode = mode
         # 28*28*3
         modules = []
-        # if hidden_dims is None:
-        # hidden_dims = [28, 56, 112, 224]
+
+        # in / out channel of convolutions
         hidden_dims = [32, 64, 128, 256]
 
+        # generation of layer
         in_channels = self.channels
         for h_dim in hidden_dims:
             modules.append(
@@ -33,12 +34,10 @@ class Encoder(nn.Module):
         
         self.encoder = nn.Sequential(*modules)
 
+        # linear layers for sampling
         self.linear_mu = nn.Linear(hidden_dims[-1]*4, latent_dims)
         self.linear_sigma = nn.Linear(hidden_dims[-1]*4, latent_dims)
 
-        self.N = torch.distributions.Normal(0, 1)
-        self.N.loc = self.N.loc.to("cuda:0")#.cuda() # hack to get sampling on the GPU
-        self.N.scale = self.N.scale.to("cuda:0")#.cuda()
         self.kl = 0
 
     # this is for the beta vae
@@ -56,6 +55,7 @@ class Encoder(nn.Module):
         x = self.encoder(x)
         x = torch.flatten(x, start_dim=1)
 
+        # default is "beta_vae"
         if self.mode == "beta_vae":
             z = self.sampling_beta(x)
         else:
@@ -67,12 +67,14 @@ class Decoder(nn.Module):
         super(Decoder, self).__init__()
         self.channels = channels
         modules = []
-        # if hidden_dims is None:
-        # hidden_dims = [28, 56, 112, 224]
+
+        # in / out channel of convolutions
         hidden_dims = [32, 64, 128, 256]
 
+        # first input layer of decoder
         self.decoder_input = nn.Linear(latent_dims, hidden_dims[-1] * 4)
 
+        # generation of layers
         hidden_dims.reverse()
         for i in range(len(hidden_dims) - 1):
             modules.append(
@@ -88,6 +90,7 @@ class Decoder(nn.Module):
             )
         self.decoder = nn.Sequential(*modules)
 
+        # last layer to bring image back to input shape
         self.final_layer = nn.Sequential(
             nn.ConvTranspose2d(hidden_dims[-1],
                                 hidden_dims[-1],
@@ -124,9 +127,13 @@ class VariationalAutoencoder(nn.Module):
     def train(self, data, epochs=5, lr=0.001, device="cpu", fast=False):
         # only for fast training
         nsamples = 100
+
+        # initialize values for loss
         running_loss = 0.
         running_diff = 0.
         running_kl = 0.
+
+        # set Adam as optimizer
         self.opt = torch.optim.Adam(self.parameters(), lr=lr)
         for epoch in range(epochs):
             i = 0
@@ -134,20 +141,16 @@ class VariationalAutoencoder(nn.Module):
                 if fast and i > nsamples:
                     break
                 i= i + 1
-                # print(x.shape)
                 x = x.to(device) # GPU
     
-                # for sample in x:
                 self.opt.zero_grad()
                 x_hat = self.forward(x)
                 diff = ((x - x_hat)**2).sum()
 
                 # loss = diff + self.encoder.kl       
-                self.C_max = torch.tensor([25]).to(device)
-                self.C_stop_iter = epochs
-                self.num_iter = epoch
-                self.gamma = .25
-                C = torch.clamp(self.C_max/self.C_stop_iter * self.num_iter, 0, self.C_max.data[0])
+                self.C_max = torch.tensor([25]).to(device) # Max influence on loss of kl
+                self.gamma = .25 # how much kl is allowed to influence loss
+                C = torch.clamp(self.C_max/epochs * epoch, 0, self.C_max.data[0])
                 loss = diff + self.gamma * (self.encoder.kl - C).abs() #  https://arxiv.org/pdf/1804.03599.pdf               
                 loss.backward()
                 self.opt.step()
@@ -166,6 +169,7 @@ class VariationalAutoencoder(nn.Module):
             running_kl = 0.
      
     def generate(self, device="cpu", z=None, u_bound=1.8, l_bound=-1.8):
+        # used for generating output images based on random or supplied latent vectors
         if z == None:
             z = torch.torch.distributions.Uniform(torch.Tensor([l_bound]), torch.Tensor([u_bound])).sample([1,128]).view(1,128).to(device)
         img = self.decoder.forward(z)

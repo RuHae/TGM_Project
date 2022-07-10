@@ -1,8 +1,5 @@
 # app.py
-from crypt import methods
 import sys
-
-from requests import request
 sys.path.insert(1, '../Code')
 
 from flask import Flask, render_template, request  
@@ -83,8 +80,8 @@ def results():
         dataset = test_dataset_path
         if model_name == "beta-vae":
             model = beta_vae_path
-            l_bound = -1.8
-            u_bound = 1.8
+            l_bound = -2.34
+            u_bound = 2.27
         elif model_name == "vq-vae":
             model = vq_vae_path
             l_bound = 0
@@ -96,8 +93,8 @@ def results():
         dataset = test_dataset_blood
         if model_name == "beta-vae":
             model = beta_vae_blood
-            l_bound = -1.8
-            u_bound = 1.8
+            l_bound = -2.21
+            u_bound = 2.26
         elif model_name == "vq-vae":
             model = vq_vae_blood
             l_bound = 0
@@ -109,8 +106,8 @@ def results():
         dataset = test_dataset_organ
         if model_name == "beta-vae":
             model = beta_vae_organ
-            l_bound = -1.8
-            u_bound = 1.8
+            l_bound = -2.64
+            u_bound = 2.64
         elif model_name == "vq-vae":
             model = vq_vae_organ
             l_bound = 0
