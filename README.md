@@ -10,7 +10,7 @@ The task for this project is to implement a Variational Autoencoder (VAE) model 
 For the full bonus (+0.7), implement and evaluate a VAE variant (e.g. Beta VAE, Discrete label VAE, VQ VAE, CVAE) to disentangle the latent space, or to learn the class-conditional distribution for at least three different image classes. Implement a simple user interface (PyQt, Flask+HTML, TkInter,...) where the user can select an image class (PathMNIST, ChestMNIST,...) to sample from.
 
 ## Execution
-To run the project start a flask server (`flask run`) in the `App` folder.
+To run the project start a flask server (`flask run`) in the `App` folder. Then go to `localhost:5000/home` to visit the Flask frontend.
 
 For just playing with the different models go into the `Code` folder where the models and some jupyter notebooks are available.
 

@@ -29,10 +29,10 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 # beta-vae
 beta_vae_blood = VariationalAutoencoder_beta(latent_dims, mode="beta_vae", channels=3).to(device) # GPU
-beta_vae_blood.load_from_file(path="../Code/models/blood_beta_v6")
+beta_vae_blood.load_from_file(path="../Code/models/blood_beta_v7")
 
 beta_vae_organ = VariationalAutoencoder_beta(latent_dims, mode="beta_vae", channels=1).to(device) # GPU
-beta_vae_organ.load_from_file(path="../Code/models/organ_beta_v1")
+beta_vae_organ.load_from_file(path="../Code/models/organ_beta_v2")
 
 beta_vae_path = VariationalAutoencoder_beta(latent_dims, mode="beta_vae", channels=3).to(device) # GPU
 beta_vae_path.load_from_file(path="../Code/models/path_beta_v2")

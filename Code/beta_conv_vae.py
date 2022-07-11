@@ -181,6 +181,10 @@ class VariationalAutoencoder(nn.Module):
         return None
 
     def load_from_file(self, path):
-        self.load_state_dict(torch.load(path))
+        if torch.cuda.is_available():
+            self.load_state_dict(torch.load(path))
+        else:
+            self.load_state_dict(torch.load(path, map_location=torch.device("cpu")))
+
         print("Model loaded from", path)
         return None

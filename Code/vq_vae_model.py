@@ -342,7 +342,11 @@ class VariationalAutoencoder(nn.Module):
         return None
 
     def load_from_file(self, path):
-        checkpoint = torch.load(path)
+        if torch.cuda.is_available():
+            checkpoint = torch.load(path)
+        else:
+            checkpoint = torch.load(path, map_location=torch.device("cpu"))
+            
         self._encoder.load_state_dict(checkpoint['encoder'])
         self._pre_vq_conv.load_state_dict(checkpoint['pre_vq_conv'])
         self._decoder.load_state_dict(checkpoint["decoder"])
